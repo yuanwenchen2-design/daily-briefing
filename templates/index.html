@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日简报 · Daily Briefing</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <span class="logo">📡 每日简报</span>
+            <span class="logo-sub">Daily Briefing</span>
+        </div>
+        <div class="top-bar-center">
+            <span class="date-display" id="dateDisplay">---</span>
+        </div>
+        <div class="top-bar-right">
+            <div class="lang-selector">
+                <button class="lang-btn" data-lang="chinese" title="中文普通话">🇨🇳 中文</button>
+                <button class="lang-btn" data-lang="english" title="English">🇺🇸 English</button>
+                <button class="lang-btn" data-lang="cantonese" title="粵語">🇭🇰 粵語</button>
+            </div>
+            <button class="play-btn" id="playBtn" title="语音播报">🔊 播报</button>
+            <button class="refresh-btn" id="refreshBtn" title="重新采集">🔄</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div id="loadingState" class="loading">
+            <div class="spinner"></div>
+            <p>正在采集全球新闻...</p>
+            <p class="loading-sub">Fetching latest headlines &amp; generating AI summary</p>
+        </div>
+
+        <div id="briefingContent" class="briefing-grid" style="display: none;"></div>
+
+        <!-- ══════ 美股分析 ══════ -->
+        <div id="stocksSectionUS" class="stocks-section" style="display: none;">
+            <div class="stocks-header">
+                <h2>🇺🇸 美股分析 <span class="stocks-header-sub">US Stocks</span></h2>
+            </div>
+            <div id="marketBar" class="market-bar"></div>
+            <div class="stocks-grid">
+                <div class="stocks-column" id="highPotentialCol">
+                    <h3 class="stocks-col-title">🚀 高潜力股 <span class="stocks-col-sub">High Upside</span></h3>
+                    <div id="highPotentialList"></div>
+                </div>
+                <div class="stocks-column" id="eventDrivenCol">
+                    <h3 class="stocks-col-title">⚡ 事件驱动 <span class="stocks-col-sub">Event-Driven</span></h3>
+                    <div id="eventDrivenList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════ A股分析 ══════ -->
+        <div id="stocksSectionA" class="stocks-section" style="display: none;">
+            <div class="stocks-header">
+                <h2>🇨🇳 A股分析 <span class="stocks-header-sub">A-Shares</span></h2>
+            </div>
+            <div class="stocks-grid">
+                <div class="stocks-column" id="aHighPotentialCol">
+                    <h3 class="stocks-col-title">🚀 高潜力股 <span class="stocks-col-sub">High Upside</span></h3>
+                    <div id="aHighPotentialList"></div>
+                </div>
+                <div class="stocks-column" id="aEventDrivenCol">
+                    <h3 class="stocks-col-title">⚡ 事件驱动 <span class="stocks-col-sub">Event-Driven</span></h3>
+                    <div id="aEventDrivenList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════ 港股分析 ══════ -->
+        <div id="stocksSectionHK" class="stocks-section" style="display: none;">
+            <div class="stocks-header">
+                <h2>🇭🇰 港股分析 <span class="stocks-header-sub">HK Stocks</span></h2>
+            </div>
+            <div class="stocks-grid">
+                <div class="stocks-column" id="hkHighPotentialCol">
+                    <h3 class="stocks-col-title">🚀 高潜力股 <span class="stocks-col-sub">High Upside</span></h3>
+                    <div id="hkHighPotentialList"></div>
+                </div>
+                <div class="stocks-column" id="hkEventDrivenCol">
+                    <h3 class="stocks-col-title">⚡ 事件驱动 <span class="stocks-col-sub">Event-Driven</span></h3>
+                    <div id="hkEventDrivenList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">📭</div>
+            <h2>暂无简报</h2>
+            <p>请运行 <code>python main.py</code> 生成今日简报</p>
+        </div>
+    </main>
+
+    <audio id="audioPlayer" preload="auto"></audio>
+
+    <footer class="status-bar">
+        <span id="statusText">就绪</span>
+        <span class="status-separator">|</span>
+        <span id="statusLang">中文</span>
+        <span class="status-separator">|</span>
+        <span id="statusTime">---</span>
+    </footer>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
