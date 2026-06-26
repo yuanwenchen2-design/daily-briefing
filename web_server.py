@@ -199,6 +199,92 @@ def api_status():
     })
 
 
+@app.route("/api/debug")
+def api_debug():
+    """诊断端点：检查 API 配置、数据加载状态"""
+    from config import DEEPSEEK_API_KEY, BASE_DIR
+    import subprocess, os
+
+    # Git 版本
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(BASE_DIR), stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        git_hash = "unknown"
+
+    # API Key 状态
+    key_masked = ""
+    if DEEPSEEK_API_KEY:
+        key_masked = DEEPSEEK_API_KEY[:8] + "..." + DEEPSEEK_API_KEY[-4:]
+
+    # 测试 API 连通性
+    api_test = "not_tested"
+    if DEEPSEEK_API_KEY:
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+            r = client.chat.completions.create(
+                model="deepseek-chat", max_tokens=5,
+                messages=[{"role": "user", "content": "say hi"}],
+            )
+            api_test = "ok" if r.choices else "no_response"
+        except Exception as e:
+            api_test = f"error: {str(e)[:100]}"
+
+    # 缓存文件
+    cache_files = {}
+    for name in ["_current_summary.json", "_current_stocks.json"]:
+        p = BASE_DIR / "audio" / name
+        cache_files[name] = {
+            "exists": p.exists(),
+            "size": p.stat().st_size if p.exists() else 0,
+        }
+
+    # 数据状态
+    briefing_summary = _current_briefing.get("summary", {})
+    briefing_cats = {k: len(v) for k, v in briefing_summary.items()} if briefing_summary else {}
+    first_item = None
+    for items in briefing_summary.values():
+        if items:
+            first_item = {
+                "has_title_en": bool(items[0].get("title_en")),
+                "has_title_zh": bool(items[0].get("title_zh")),
+                "title_en": (items[0].get("title_en") or "")[:60],
+                "title_zh": (items[0].get("title_zh") or "")[:60],
+            }
+            break
+
+    stock_status = {
+        "has_high_potential": bool(_current_stocks.get("high_potential")),
+        "has_event_driven": bool(_current_stocks.get("event_driven")),
+        "has_a_shares": bool(_current_stocks.get("a_shares")),
+        "has_hk": bool(_current_stocks.get("hk_stocks")),
+    }
+
+    return jsonify({
+        "success": True,
+        "git": git_hash,
+        "api_key": {
+            "configured": bool(DEEPSEEK_API_KEY),
+            "masked": key_masked,
+            "test": api_test,
+        },
+        "briefing": {
+            "categories": briefing_cats,
+            "total_items": sum(briefing_cats.values()),
+            "sample": first_item,
+        },
+        "stocks": stock_status,
+        "cache": cache_files,
+        "env": {
+            "DEEPSEEK_API_KEY_set": bool(os.getenv("DEEPSEEK_API_KEY")),
+            "DEFAULT_LANGUAGE": os.getenv("DEFAULT_LANGUAGE", "(default)"),
+        },
+    })
+
+
 def start_server(host: str = "127.0.0.1", port: int = 5200, open_browser: bool = True):
     init_db()
     if open_browser:
