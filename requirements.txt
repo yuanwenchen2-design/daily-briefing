@@ -5,3 +5,4 @@ edge-tts>=6.1.9
 python-dotenv>=1.0.0
 openai>=1.0.0
 yfinance>=0.2.40
+gunicorn>=22.0.0
