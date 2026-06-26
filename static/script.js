@@ -44,13 +44,36 @@ async function init() {
 }
 
 // ==================== 加载简报 ====================
+let _pollTimer = null;
+let _pollCount = 0;
+const MAX_POLL = 30;  // 最多轮询 30 次（约 2.5 分钟）
+
 async function loadBriefing(lang) {
     showLoading(true);
     hideEmpty();
+    _pollCount = 0;
+    await _doLoad(lang);
+}
+
+async function _doLoad(lang) {
     try {
         const resp = await fetch(`/api/briefing?lang=${lang}`);
         const json = await resp.json();
-        if (!json.success) { showEmpty(); setStatus('暂无简报'); return; }
+        if (!json.success) {
+            // 数据还没就绪，轮询等待（Render 刚唤醒时 pipeline 还没跑完）
+            if (_pollCount < MAX_POLL) {
+                _pollCount++;
+                setStatus(`简报生成中，请稍候... (${_pollCount}/${MAX_POLL})`);
+                showLoading(true);
+                hideEmpty();
+                _pollTimer = setTimeout(() => _doLoad(lang), 5000);
+                return;
+            }
+            showEmpty();
+            setStatus('简报生成超时，请点击刷新重试');
+            return;
+        }
+        clearTimeout(_pollTimer);
         STATE.briefingData = json.data;
         STATE.currentLang = lang;
         renderBriefing(json.data.summary, lang);
@@ -60,10 +83,19 @@ async function loadBriefing(lang) {
         setStatus('简报就绪');
     } catch (err) {
         console.error(err);
+        if (_pollCount < MAX_POLL) {
+            _pollCount++;
+            _pollTimer = setTimeout(() => _doLoad(lang), 5000);
+            return;
+        }
         showEmpty();
-        setStatus('加载失败');
+        setStatus('加载失败，请刷新页面');
     } finally {
-        showLoading(false);
+        if (_pollCount >= MAX_POLL) {
+            showLoading(false);
+        } else if (!_pollTimer) {
+            showLoading(false);
+        }
     }
 }
 
