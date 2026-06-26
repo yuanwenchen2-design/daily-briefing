@@ -27,9 +27,15 @@ _current_briefing: dict = {
 
 _current_stocks: dict = {
     "market_overview": {}, "high_potential": [], "event_driven": [],
+    "a_shares": {"high_potential": [], "event_driven": []},
+    "hk_stocks": {"high_potential": [], "event_driven": []},
 }
 
-# 后台刷新锁
+pipeline_status: dict = {
+    "state": "idle", "started_at": None, "finished_at": None,
+    "last_error": None, "steps_completed": [],
+}
+
 _refresh_lock = threading.Lock()
 _is_refreshing = False
 
@@ -201,7 +207,7 @@ def api_status():
 
 @app.route("/api/debug")
 def api_debug():
-    """诊断端点：检查 API 配置、数据加载状态"""
+    """诊断端点：检查 API 配置、数据加载状态、pipeline 进度"""
     from config import DEEPSEEK_API_KEY, BASE_DIR
     import subprocess, os
 
@@ -263,6 +269,9 @@ def api_debug():
         "has_hk": bool(_current_stocks.get("hk_stocks")),
     }
 
+    # Pipeline 状态（模块级变量，wsgi.py 共享更新）
+    ps = pipeline_status
+
     return jsonify({
         "success": True,
         "git": git_hash,
@@ -278,11 +287,49 @@ def api_debug():
         },
         "stocks": stock_status,
         "cache": cache_files,
+        "pipeline": {
+            "state": ps.get("state", "unknown"),
+            "started_at": ps.get("started_at"),
+            "finished_at": ps.get("finished_at"),
+            "last_error": ps.get("last_error"),
+            "steps": ps.get("steps_completed", []),
+        },
         "env": {
             "DEEPSEEK_API_KEY_set": bool(os.getenv("DEEPSEEK_API_KEY")),
             "DEFAULT_LANGUAGE": os.getenv("DEFAULT_LANGUAGE", "(default)"),
         },
     })
+
+
+@app.route("/api/trigger")
+def api_trigger():
+    """手动触发简报生成（Render 上用）"""
+    if pipeline_status.get("state") == "running":
+        return jsonify({"success": False, "message": "Pipeline 正在运行中", "status": pipeline_status})
+
+    def _run():
+        try:
+            pipeline_status["state"] = "running"
+            pipeline_status["started_at"] = datetime.now().isoformat()
+            pipeline_status["steps_completed"] = []
+            pipeline_status["last_error"] = None
+
+            from main import run_full_pipeline
+            from config import DEFAULT_LANGUAGE
+            ok = run_full_pipeline(DEFAULT_LANGUAGE)
+            pipeline_status["state"] = "done" if ok else "failed"
+            pipeline_status["finished_at"] = datetime.now().isoformat()
+            if not ok:
+                pipeline_status["last_error"] = "run_full_pipeline 返回 False"
+        except Exception as e:
+            import traceback
+            pipeline_status["state"] = "failed"
+            pipeline_status["last_error"] = traceback.format_exc()[-500:]
+            pipeline_status["finished_at"] = datetime.now().isoformat()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return jsonify({"success": True, "message": "Pipeline 已在后台启动，请等待 2-3 分钟后查看 /api/debug"})
 
 
 def start_server(host: str = "127.0.0.1", port: int = 5200, open_browser: bool = True):
